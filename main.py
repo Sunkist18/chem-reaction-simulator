@@ -107,6 +107,57 @@ def show_history_table(reactants, products, history):
     st.markdown(table)
 
 
+def show_result(reactants, products, history):
+    if len(history) == 1:
+        st.write("반응물이 부족하여 반응하지 않았습니다")
+        return
+
+    final_counts = history[-1]
+    exhausted = []
+    insufficient = []
+    remaining = []
+    created = []
+
+    for i in range(len(reactants)):
+        formula = reactants[i][0]
+        coefficient = reactants[i][1]
+        count = final_counts[i]
+
+        if count == 0:
+            exhausted.append(formula)
+
+        if count < coefficient:
+            insufficient.append(formula)
+
+        if count > 0:
+            remaining.append(formula + " " + str(count) + "개")
+
+    for i in range(len(products)):
+        formula = products[i][0]
+        count = final_counts[len(reactants) + i]
+        created.append(formula + " " + str(count) + "개")
+
+    if len(exhausted) == 1:
+        st.write(exhausted[0] + "가 먼저 모두 소모되었습니다.")
+    elif len(exhausted) > 1:
+        st.write(", ".join(exhausted) + "가 동시에 모두 소모되었습니다.")
+    else:
+        st.write("완전히 소모된 반응물은 없습니다.")
+
+    st.write(
+        "다음 반응에 필요한 "
+        + ", ".join(insufficient)
+        + "의 개수가 부족하여 반응이 멈췄습니다."
+    )
+
+    if len(remaining) > 0:
+        st.write("남은 반응물은 " + ", ".join(remaining) + "입니다.")
+    else:
+        st.write("남은 반응물은 없습니다.")
+
+    st.write("생성물은 " + ", ".join(created) + " 만들어졌습니다.")
+
+
 def show_screen():
     st.title("화학 반응 시뮬레이터")
 
@@ -126,6 +177,8 @@ def show_screen():
     products = parsed_reaction[1]
 
     st.write("반응식: " + equation)
+    st.write("종류: " + selected_reaction[2])
+    st.write("설명: " + selected_reaction[3])
 
     reactant_counts = []
 
@@ -175,15 +228,11 @@ def show_screen():
             st.session_state.history
         )
 
-        reaction_count = len(st.session_state.history) - 1
-
-        if reaction_count == 0:
-            st.warning("반응물이 부족하여 반응하지 않았습니다.")
-        else:
-            st.success(
-                "총 " + str(reaction_count)
-                + "번 반응했습니다. 반응물이 부족하여 종료했습니다."
-            )
+        show_result(
+            reactants,
+            products,
+            st.session_state.history
+        )
 
 
 show_screen()
