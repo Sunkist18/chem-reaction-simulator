@@ -46,6 +46,27 @@ def parse_reaction(equation):
     return result
 
 
+def react_once(reactant_counts, product_counts, parsed_reaction):
+    reactants = parsed_reaction[0]
+    products = parsed_reaction[1]
+
+    for i in range(len(reactants)):
+        coefficient = reactants[i][1]
+
+        if reactant_counts[i] < coefficient:
+            return False
+
+    for i in range(len(reactants)):
+        coefficient = reactants[i][1]
+        reactant_counts[i] -= coefficient
+
+    for i in range(len(products)):
+        coefficient = products[i][1]
+        product_counts[i] += coefficient
+
+    return True
+
+
 def show_table(title, substances):
     st.subheader(title)
 
@@ -55,6 +76,19 @@ def show_table(title, substances):
         formula = substance[0]
         coefficient = substance[1]
         table += "| " + formula + " | " + str(coefficient) + " |\n"
+
+    st.markdown(table)
+
+
+def show_count_table(title, substances, counts):
+    st.subheader(title)
+
+    table = "| 화학식 | 분자 수 |\n| --- | --- |\n"
+
+    for i in range(len(substances)):
+        formula = substances[i][0]
+        count = counts[i]
+        table += "| " + formula + " | " + str(count) + " |\n"
 
     st.markdown(table)
 
@@ -91,8 +125,28 @@ def show_screen():
         )
         reactant_counts.append(count)
 
+    product_counts = []
+
+    for product in products:
+        product_counts.append(0)
+
     show_table("반응물", reactants)
     show_table("생성물", products)
+
+    if st.sidebar.button("실행"):
+        reacted = react_once(
+            reactant_counts,
+            product_counts,
+            parsed_reaction
+        )
+
+        if reacted:
+            st.success("반응이 한 번 일어났습니다.")
+        else:
+            st.warning("반응물이 부족하여 반응하지 않았습니다.")
+
+        show_count_table("실행 후 반응물", reactants, reactant_counts)
+        show_count_table("실행 후 생성물", products, product_counts)
 
 
 show_screen()
