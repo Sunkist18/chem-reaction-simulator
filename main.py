@@ -80,15 +80,29 @@ def show_table(title, substances):
     st.markdown(table)
 
 
-def show_count_table(title, substances, counts):
-    st.subheader(title)
+def show_history_table(reactants, products, history):
+    st.subheader("단계별 분자 수")
 
-    table = "| 화학식 | 분자 수 |\n| --- | --- |\n"
+    substances = reactants + products
+    table = "| 단계 |"
 
-    for i in range(len(substances)):
-        formula = substances[i][0]
-        count = counts[i]
-        table += "| " + formula + " | " + str(count) + " |\n"
+    for substance in substances:
+        table += " " + substance[0] + " |"
+
+    table += "\n| --- |"
+
+    for substance in substances:
+        table += " --- |"
+
+    table += "\n"
+
+    for step in range(len(history)):
+        table += "| " + str(step) + " |"
+
+        for count in history[step]:
+            table += " " + str(count) + " |"
+
+        table += "\n"
 
     st.markdown(table)
 
@@ -125,28 +139,51 @@ def show_screen():
         )
         reactant_counts.append(count)
 
-    product_counts = []
+    current_inputs = [selected_name, equation] + reactant_counts
 
-    for product in products:
-        product_counts.append(0)
+    if "previous_inputs" not in st.session_state:
+        st.session_state.previous_inputs = []
+
+    if "history" not in st.session_state:
+        st.session_state.history = []
+
+    if current_inputs != st.session_state.previous_inputs:
+        st.session_state.history = []
+        st.session_state.previous_inputs = current_inputs
 
     show_table("반응물", reactants)
     show_table("생성물", products)
 
     if st.sidebar.button("실행"):
-        reacted = react_once(
-            reactant_counts,
-            product_counts,
-            parsed_reaction
+        product_counts = []
+
+        for product in products:
+            product_counts.append(0)
+
+        history = []
+        history.append(reactant_counts + product_counts)
+
+        while react_once(reactant_counts, product_counts, parsed_reaction):
+            history.append(reactant_counts + product_counts)
+
+        st.session_state.history = history
+
+    if len(st.session_state.history) > 0:
+        show_history_table(
+            reactants,
+            products,
+            st.session_state.history
         )
 
-        if reacted:
-            st.success("반응이 한 번 일어났습니다.")
-        else:
-            st.warning("반응물이 부족하여 반응하지 않았습니다.")
+        reaction_count = len(st.session_state.history) - 1
 
-        show_count_table("실행 후 반응물", reactants, reactant_counts)
-        show_count_table("실행 후 생성물", products, product_counts)
+        if reaction_count == 0:
+            st.warning("반응물이 부족하여 반응하지 않았습니다.")
+        else:
+            st.success(
+                "총 " + str(reaction_count)
+                + "번 반응했습니다. 반응물이 부족하여 종료했습니다."
+            )
 
 
 show_screen()
