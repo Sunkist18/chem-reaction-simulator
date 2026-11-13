@@ -1,4 +1,5 @@
 import streamlit as st
+import os
 
 
 def read_reactions():
@@ -154,26 +155,66 @@ def react_once(reactant_counts, product_counts, parsed_reaction):
     return True
 
 
+def find_molecule_image(formula):
+    """
+    화학식과 이름이 같은 분자 모형 이미지 파일을 찾습니다.
+
+    입력: formula는 'H2O'와 같은 화학식 문자열입니다.
+    반환: 파일이 있으면 경로 문자열, 없으면 빈 문자열입니다.
+    main.py 옆 images 폴더에서 png, jpg, jpeg, webp 순서로 찾습니다.
+    파일 이름의 대소문자는 화학식과 같아야 합니다.
+    """
+    # __file__은 현재 main.py의 경로입니다.
+    # 실행 위치가 달라도 main.py 옆의 images 폴더를 찾도록 합니다.
+    app_folder = os.path.dirname(os.path.abspath(__file__))
+    extensions = [".png", ".jpg", ".jpeg", ".webp"]
+
+    for extension in extensions:
+        # 예: images/H2O.png. 계수는 파일 이름에 넣지 않습니다.
+        image_path = os.path.join(app_folder, "images", formula + extension)
+
+        # 파일이 실제로 있을 때만 이미지 표시 함수에 전달합니다.
+        if os.path.isfile(image_path):
+            return image_path
+
+    return ""
+
+
 def show_table(title, substances):
     """
-    물질의 화학식과 계수를 표로 표시합니다.
+    물질의 화학식, 계수, 분자 모형 이미지를 표 형태로 표시합니다.
 
     입력: title은 표 제목, substances는 [화학식, 계수]의 목록입니다.
-    반환: 별도의 반환값 없이 화면에 표를 표시합니다.
+    각 행에는 images 폴더에서 읽은 해당 물질의 이미지 하나를 표시합니다.
+    이미지가 없으면 '이미지 없음'을 표시하며 나머지 기능은 계속 실행합니다.
+    반환: 별도의 반환값 없이 화면에 표 형태의 행과 열을 표시합니다.
     """
     st.subheader(title)
 
-    # Markdown 표의 제목 행과 구분선을 만듭니다. \n은 줄바꿈입니다.
-    table = "| 화학식 | 계수 |\n| --- | --- |\n"
+    # 이미지와 글자를 함께 넣기 위해 같은 너비의 열을 행마다 만듭니다.
+    # columns는 각 칸에 내용을 쓸 수 있는 공간들의 리스트를 반환합니다.
+    headers = st.columns([2, 1, 3])
+    headers[0].write("**화학식**")
+    headers[1].write("**계수**")
+    headers[2].write("**분자 모형**")
+    st.divider()
 
-    # 물질마다 화학식과 계수를 한 행씩 추가합니다.
     for substance in substances:
         formula = substance[0]
         coefficient = substance[1]
-        table += "| " + formula + " | " + str(coefficient) + " |\n"
+        columns = st.columns([2, 1, 3])
+        columns[0].write(formula)
+        columns[1].write(coefficient)
 
-    # 완성한 문자열을 화면에서 표 모양으로 표시합니다.
-    st.markdown(table)
+        image_path = find_molecule_image(formula)
+
+        if image_path != "":
+            # 모형 한 개를 보여 줍니다. 반응 계수는 옆 열에서 따로 표시합니다.
+            columns[2].image(image_path, width=120)
+        else:
+            columns[2].write("이미지 없음")
+
+        st.divider()
 
 
 def show_history_table(reactants, products, history):
