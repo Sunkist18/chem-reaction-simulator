@@ -1,6 +1,7 @@
 import streamlit as st
 import os
 import base64
+from PIL import Image
 
 
 def read_reactions():
@@ -215,7 +216,8 @@ def load_molecule_image(formula):
 
 def show_table(title, substances):
     """
-    화학식, 계수, 분자 모형이 각각 셀에 들어가는 실제 표를 표시합니다.
+    분자 모형, 화학식, 계수 순서로 실제 표를 표시합니다.
+    모형 열 너비는 높이 100인 행에서 이미지 비율에 맞게 계산합니다.
 
     입력: title은 표 제목, substances는 [화학식, 계수]의 목록입니다.
     이미지가 없는 셀은 비워 두고 해당 물질을 표 아래에 안내합니다.
@@ -224,6 +226,7 @@ def show_table(title, substances):
     st.subheader(title)
     rows = []
     missing_images = []
+    image_column_width = 100
 
     for substance in substances:
         formula = substance[0]
@@ -232,10 +235,29 @@ def show_table(title, substances):
 
         # 딕셔너리의 이름은 열 제목이고 값은 해당 행의 셀 내용입니다.
         rows.append({
+            "분자 모형": image_data,
             "화학식": formula,
-            "계수": coefficient,
-            "분자 모형": image_data
+            "계수": coefficient
         })
+
+        # 이미지의 가로세로 비율에 맞춰 필요한 열 너비를 계산합니다.
+        # 행 높이 100에서 여백을 뺀 이미지 높이 88을 기준으로 합니다.
+        image_path = find_molecule_image(formula)
+        if image_path != "":
+            try:
+                image = Image.open(image_path)
+                image_width = image.width
+                image_height = image.height
+                image.close()
+                required_width = round(image_width * 88 / image_height) + 16
+
+                # 한 표의 열 너비는 같으므로 가장 넓은 이미지에 맞춥니다.
+                if required_width > image_column_width:
+                    image_column_width = required_width
+            except OSError:
+                # 읽을 수 없는 이미지는 빈 셀로 두고 누락 안내에 포함합니다.
+                rows[-1]["분자 모형"] = None
+                image_data = None
 
         if image_data is None:
             missing_images.append(formula)
@@ -245,8 +267,12 @@ def show_table(title, substances):
     st.dataframe(
         rows,
         column_config={
-            "분자 모형": st.column_config.ImageColumn("분자 모형", width="medium")
+            "분자 모형": st.column_config.ImageColumn(
+                "분자 모형", width=image_column_width
+            )
         },
+        column_order=["분자 모형", "화학식", "계수"],
+        width="content",
         hide_index=True,
         row_height=100
     )
