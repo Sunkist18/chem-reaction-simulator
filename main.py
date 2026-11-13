@@ -3,28 +3,67 @@ import streamlit as st
 
 def read_reactions():
     """
-    반응 정보 파일을 읽어 반응 목록을 반환합니다.
+    반응 정보 파일을 읽고 사용할 수 있는 반응 목록을 반환합니다.
 
     입력: 없음. 같은 폴더의 reactions.txt를 읽습니다.
     반환: 각 항목이 [이름, 반응식, 종류, 설명]인 리스트입니다.
-    파일의 각 줄은 정해진 네 항목 형식으로 작성되어 있다고 가정합니다.
+    파일이 없거나 사용 가능한 반응이 없으면 기본 반응 두 개를 반환합니다.
+    항목 수가 네 개가 아니거나 화살표가 없는 줄은 줄 번호와 함께 안내합니다.
     """
-    # 한글을 읽을 수 있도록 UTF-8로 파일을 엽니다. r은 읽기 모드입니다.
-    file = open("reactions.txt", "r", encoding="utf-8")
-    reactions = []
+    # 파일을 사용할 수 없을 때 대신 사용할 반응 두 개입니다.
+    default_reactions = [
+        ["물 생성", "2H2 + O2 -> 2H2O", "합성",
+         "수소와 산소가 반응하여 물이 만들어집니다."],
+        ["암모니아 합성", "N2 + 3H2 -> 2NH3", "합성",
+         "질소와 수소가 반응하여 암모니아가 만들어집니다."]
+    ]
 
-    # 한 줄씩 읽고 양끝 공백과 줄바꿈을 제거합니다.
+    # try 안에서 파일 열기를 시도하고, 파일이 없으면 except에서 처리합니다.
+    try:
+        file = open("reactions.txt", "r", encoding="utf-8")
+    except FileNotFoundError:
+        st.warning("reactions.txt 파일이 없어 기본 반응 2개로 실행합니다.")
+        return default_reactions
+
+    reactions = []
+    line_number = 0
+    has_content = False
+
+    # 빈 줄도 줄 번호에 포함하여 실제 파일의 줄 번호와 맞춥니다.
     for line in file:
+        line_number += 1
         line = line.strip()
 
-        # 빈 줄은 건너뜁니다.
+        # 빈 줄은 무시합니다. 공백이나 빈 줄만 있는 파일은 빈 파일로 처리합니다.
         if line != "":
-            # 쉼표를 최대 세 번 나누어 네 항목으로 만듭니다.
-            reaction = line.split(",", 3)
-            reactions.append(reaction)
+            has_content = True
+            reaction = line.split(",")
 
-    # 파일 사용을 마치고 모아 둔 반응 목록을 돌려줍니다.
+            # 쉼표로 나눈 항목이 정확히 네 개일 때만 반응식을 검사합니다.
+            if len(reaction) != 4:
+                st.warning(
+                    str(line_number)
+                    + "번째 줄을 건너뛰었습니다: 항목은 4개여야 합니다."
+                )
+            elif "->" not in reaction[1]:
+                st.warning(
+                    str(line_number)
+                    + "번째 줄을 건너뛰었습니다: 반응식에 ->가 필요합니다"
+                )
+            else:
+                reactions.append(reaction)
+
+    # 기본 반응으로 바꾸기 전에 열었던 파일을 닫습니다.
     file.close()
+
+    # 모든 줄이 잘못된 경우에도 빈 메뉴가 생기지 않도록 기본 반응을 사용합니다.
+    if len(reactions) == 0:
+        if has_content:
+            st.warning("사용 가능한 반응이 없어 기본 반응 2개로 실행합니다.")
+        else:
+            st.warning("reactions.txt가 비어 있어 기본 반응 2개로 실행합니다.")
+        return default_reactions
+
     return reactions
 
 
