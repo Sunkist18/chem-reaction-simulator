@@ -217,6 +217,52 @@ def show_history_table(reactants, products, history):
     st.markdown(table)
 
 
+def show_history_chart(reactants, products, history):
+    """
+    단계별 분자 수를 물질마다 하나의 선으로 표시합니다.
+
+    입력: reactants와 products는 해석된 반응물 및 생성물 목록입니다.
+          history는 처음 상태부터 마지막 상태까지의 분자 수 기록입니다.
+    가로축은 단계, 세로축은 분자 수이며 선의 이름은 화학식입니다.
+    반환: 별도의 반환값 없이 화면에 선 그래프를 표시합니다.
+    """
+    st.subheader("단계별 분자 수 변화")
+
+    substances = reactants + products
+    steps = []
+
+    # 0단계는 처음 상태이며 기록의 개수만큼 단계 번호를 만듭니다.
+    for step in range(len(history)):
+        steps.append(step)
+
+    # 딕셔너리는 이름과 값을 짝지어 저장합니다.
+    # 그래프의 열 이름 '단계'에 단계 번호 리스트를 연결합니다.
+    chart_data = {"단계": steps}
+
+    # 행 단위 기록에서 같은 물질의 개수만 모아 하나의 선 데이터로 만듭니다.
+    for i in range(len(substances)):
+        formula = substances[i][0]
+        counts = []
+
+        for row in history:
+            counts.append(row[i])
+
+        # 예: chart_data['H2'] = [4, 2, 0]
+        chart_data[formula] = counts
+
+    # 단계 열을 가로축으로 지정하면 나머지 물질 열마다 선 하나가 생깁니다.
+    st.line_chart(
+        chart_data,
+        x="단계",
+        x_label="단계",
+        y_label="분자 수"
+    )
+
+    # 처음 상태만 있으면 연결할 다음 점이 없어 변화하는 선이 생기지 않습니다.
+    if len(history) == 1:
+        st.caption("반응이 일어나지 않아 0단계 데이터만 있습니다.")
+
+
 def show_result(reactants, products, history):
     """
     마지막 상태를 바탕으로 반응 결과를 문장으로 표시합니다.
@@ -379,6 +425,13 @@ def show_screen():
     # 결과 표시는 버튼 조건 밖에 두어 저장된 기록이 있으면 계속 보여 줍니다.
     if len(st.session_state.history) > 0:
         show_history_table(
+            reactants,
+            products,
+            st.session_state.history
+        )
+
+        # 표와 같은 저장 기록으로 그래프를 그리므로 결과가 함께 유지됩니다.
+        show_history_chart(
             reactants,
             products,
             st.session_state.history
