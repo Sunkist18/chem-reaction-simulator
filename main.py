@@ -1,5 +1,6 @@
 import streamlit as st
 import os
+import base64
 
 
 def read_reactions():
@@ -180,41 +181,78 @@ def find_molecule_image(formula):
     return ""
 
 
+def load_molecule_image(formula):
+    """
+    로컬 분자 이미지를 표의 이미지 셀에서 읽을 수 있는 문자열로 바꿉니다.
+
+    입력: formula는 화학식 문자열입니다.
+    반환: 이미지 데이터를 포함한 data URL이며 파일이 없거나 읽지 못하면 None입니다.
+    ImageColumn은 로컬 파일 경로를 직접 표시하지 못하므로 Base64로 변환합니다.
+    """
+    image_path = find_molecule_image(formula)
+
+    if image_path == "":
+        return None
+
+    # rb는 이미지 같은 바이너리 파일을 읽는 모드입니다.
+    try:
+        file = open(image_path, "rb")
+        image_bytes = file.read()
+        file.close()
+    except OSError:
+        return None
+
+    # 확장자에 맞는 이미지 형식을 지정합니다.
+    extension = os.path.splitext(image_path)[1]
+    image_type = extension[1:]
+    if image_type == "jpg":
+        image_type = "jpeg"
+
+    # Base64는 이미지 바이트를 표에 전달할 수 있는 문자열로 바꾸는 방법입니다.
+    encoded_image = base64.b64encode(image_bytes).decode("ascii")
+    return "data:image/" + image_type + ";base64," + encoded_image
+
+
 def show_table(title, substances):
     """
-    물질의 화학식, 계수, 분자 모형 이미지를 표 형태로 표시합니다.
+    화학식, 계수, 분자 모형이 각각 셀에 들어가는 실제 표를 표시합니다.
 
     입력: title은 표 제목, substances는 [화학식, 계수]의 목록입니다.
-    각 행에는 images 폴더에서 읽은 해당 물질의 이미지 하나를 표시합니다.
-    이미지가 없으면 '이미지 없음'을 표시하며 나머지 기능은 계속 실행합니다.
-    반환: 별도의 반환값 없이 화면에 표 형태의 행과 열을 표시합니다.
+    이미지가 없는 셀은 비워 두고 해당 물질을 표 아래에 안내합니다.
+    반환: 별도의 반환값 없이 화면에 표를 표시합니다.
     """
     st.subheader(title)
-
-    # 이미지와 글자를 함께 넣기 위해 같은 너비의 열을 행마다 만듭니다.
-    # columns는 각 칸에 내용을 쓸 수 있는 공간들의 리스트를 반환합니다.
-    headers = st.columns([2, 1, 3])
-    headers[0].write("**화학식**")
-    headers[1].write("**계수**")
-    headers[2].write("**분자 모형**")
-    st.divider()
+    rows = []
+    missing_images = []
 
     for substance in substances:
         formula = substance[0]
         coefficient = substance[1]
-        columns = st.columns([2, 1, 3])
-        columns[0].write(formula)
-        columns[1].write(coefficient)
+        image_data = load_molecule_image(formula)
 
-        image_path = find_molecule_image(formula)
+        # 딕셔너리의 이름은 열 제목이고 값은 해당 행의 셀 내용입니다.
+        rows.append({
+            "화학식": formula,
+            "계수": coefficient,
+            "분자 모형": image_data
+        })
 
-        if image_path != "":
-            # 모형 한 개를 보여 줍니다. 반응 계수는 옆 열에서 따로 표시합니다.
-            columns[2].image(image_path, width=120)
-        else:
-            columns[2].write("이미지 없음")
+        if image_data is None:
+            missing_images.append(formula)
 
-        st.divider()
+    # 이미지 열로 지정해야 문자열 대신 이미지가 셀 안에 표시됩니다.
+    # 행 높이를 늘려 모형이 보이게 하고 불필요한 행 번호는 숨깁니다.
+    st.dataframe(
+        rows,
+        column_config={
+            "분자 모형": st.column_config.ImageColumn("분자 모형", width="medium")
+        },
+        hide_index=True,
+        row_height=100
+    )
+
+    if len(missing_images) > 0:
+        st.caption("이미지 없음: " + ", ".join(missing_images))
 
 
 def show_history_table(reactants, products, history):
@@ -439,10 +477,6 @@ def show_screen():
         st.session_state.history = []
         st.session_state.previous_inputs = current_inputs
 
-    # 계수 표는 실행 버튼을 누르기 전에도 표시합니다.
-    show_table("반응물", reactants)
-    show_table("생성물", products)
-
     # 버튼을 누른 실행에서만 처음 입력값으로 전체 반응을 계산합니다.
     if st.sidebar.button("실행"):
         product_counts = []
@@ -465,6 +499,10 @@ def show_screen():
 
     # 결과 표시는 버튼 조건 밖에 두어 저장된 기록이 있으면 계속 보여 줍니다.
     if len(st.session_state.history) > 0:
+        # 반응물과 생성물의 모형 표도 실행 후에만 표시합니다.
+        show_table("반응물", reactants)
+        show_table("생성물", products)
+
         show_history_table(
             reactants,
             products,
