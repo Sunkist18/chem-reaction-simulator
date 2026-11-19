@@ -170,3 +170,20 @@
     border-bottom: 0;
     color: var(--accent);
 }
+
+.molecule-comparison {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 2px 16px;
+}
+
+.molecule-comparison h3, .molecule-comparison .species {
+    margin: 0;
+    padding: 16px;
+    background: var(--surface);
+}
+
+.molecule-comparison h3 { border-radius: 16px 16px 0 0; }
+.molecule-comparison .species { color: var(--highlight); }
+.particles { display: flex; flex-wrap: wrap; gap: 8px; }
+.particles img { width: 52px; height: 48px; object-fit: contain; margin-top: 8px; }

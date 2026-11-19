@@ -1,4 +1,5 @@
 import streamlit as st
+import base64
 from html import escape
 from pathlib import Path
 
@@ -21,7 +22,7 @@ def read_reactions():
 
     # try 안에서 파일 열기를 시도하고, 파일이 없으면 except에서 처리합니다.
     try:
-        file = open("reactions.txt", "r", encoding="utf-8")
+        file = open(Path(__file__).with_name("reactions.txt"), "r", encoding="utf-8")
     except FileNotFoundError:
         st.warning("reactions.txt 파일이 없어 기본 반응 2개로 실행합니다.")
         return default_reactions
@@ -116,87 +117,47 @@ def parse_reaction(equation):
     return result
 
 
-def react_once(reactant_counts, product_counts, parsed_reaction):
-    """
-    반응물이 충분하면 반응을 한 번 진행합니다.
-
-    입력: reactant_counts는 반응물 개수 리스트입니다.
-          product_counts는 생성물 개수 리스트입니다.
-          parsed_reaction은 parse_reaction의 반환값입니다.
-    개수 리스트는 해석된 물질 목록과 길이 및 순서가 같아야 합니다.
-    반환: 반응하면 True, 반응물이 부족하면 False입니다.
-    반응할 때는 전달받은 두 개수 리스트를 직접 수정합니다.
-    하나라도 부족하면 두 리스트 모두 수정하지 않습니다.
-    """
-    # 해석 결과에서 반응물 목록과 생성물 목록을 꺼냅니다.
-    reactants = parsed_reaction[0]
-    products = parsed_reaction[1]
-
-    # i는 목록에서 물질의 위치를 나타냅니다.
-    for i in range(len(reactants)):
-        coefficient = reactants[i][1]
-
-        # 하나라도 부족하면 즉시 종료합니다. 이때까지 개수는 바꾸지 않습니다.
-        if reactant_counts[i] < coefficient:
-            return False
-
-    # i는 목록에서 물질의 위치를 나타냅니다.
-    for i in range(len(reactants)):
-        coefficient = reactants[i][1]
-        # 모든 반응물이 충분한 것을 확인한 뒤 계수만큼 소비합니다.
-        reactant_counts[i] -= coefficient
-
-    # 생성물은 각각 자기 계수만큼 늘어납니다.
-    for i in range(len(products)):
-        coefficient = products[i][1]
-        product_counts[i] += coefficient
-
-    # 반응을 한 번 완료했다는 뜻으로 True를 반환합니다.
-    return True
+def counts_at_step(before, changes, step):
+    return [count + step * change for count, change in zip(before, changes)]
 
 
-def show_history_table(reactants, products, history):
-    """
-    처음 상태와 매 반응 단계의 분자 수를 표로 표시합니다.
-
-    입력: reactants와 products는 해석된 반응물 및 생성물 목록입니다.
-          history는 각 단계의 분자 수 리스트를 모은 리스트입니다.
-    각 행의 분자 수는 반응물 다음 생성물 순서이며 0단계는 처음 상태입니다.
-    반환: 별도의 반환값 없이 화면에 표를 표시합니다.
-    """
-    st.subheader("단계별 분자 수")
-
-    # 기록된 개수와 같은 순서로 반응물과 생성물 목록을 연결합니다.
-    substances = reactants + products
+def show_history_table(substances, before, changes, steps):
     table = "| 단계 |"
-
-    # 물질 개수만큼 표의 열을 만듭니다.
-    for substance in substances:
-        table += " " + substance[0] + " |"
-
-    table += "\n| --- |"
-
-    # 물질 개수만큼 표의 열을 만듭니다.
-    for substance in substances:
-        table += " --- |"
-
-    table += "\n"
-
-    # 단계 번호는 0부터 시작하며, 단계 하나를 표의 한 행으로 만듭니다.
-    for step in range(len(history)):
-        table += "| " + str(step) + " |"
-
-        # 해당 단계에 기록된 모든 물질의 분자 수를 순서대로 넣습니다.
-        for count in history[step]:
-            table += " " + str(count) + " |"
-
+    for formula, coefficient in substances:
+        table += formula + "|"
+    table += "\n" + "| --- " * (1 + len(substances)) + "|\n"
+    first = 0
+    if steps >= 100:
+        page = st.number_input("단계 표 페이지", 1, steps // 100 + 1)
+        first = (page - 1) * 100
+    for step in range(first, min(first + 100, steps + 1)):
+        table += f"| {step} |"
+        for count in counts_at_step(before, changes, step):
+            table += f" {count} |"
         table += "\n"
-
-    # 완성된 단계별 표를 표시합니다.
     st.markdown(table)
 
 
-def show_change_table(reactants, products, history):
+def show_molecules(substances, before, after):
+    # 개수가 많을 때도 한 그림이 한 분자를 나타내도록 페이지를 나눕니다.
+    start = 0
+    largest = max(before + after)
+    if largest > 100:
+        page = st.number_input("물질별 모형 페이지 (100개씩)", 1, (largest + 99) // 100)
+        start = (page - 1) * 100
+    panel = '<div class="molecule-comparison"><h3>반응 전</h3><h3>반응 후</h3>'
+    for i, (formula, coefficient) in enumerate(substances):
+        path = Path(__file__).with_name("molecules") / (formula + ".svg")
+        data = base64.b64encode(path.read_bytes()).decode("ascii")
+        icon = f'<img src="data:image/svg+xml;base64,{data}" alt="">'
+        for count in (before[i], after[i]):
+            visible = min(100, max(0, count - start))
+            panel += f'<div class="species"><b>{escape(formula)} · {count}개</b>'
+            panel += '<div class="particles">' + icon * visible + '</div></div>'
+    st.html(panel + '</div>')
+
+
+def show_change_table(reactants, products, initial, final):
     st.subheader("반응 전후 분자 수")
     header = "| 분자 수(개) |"
     divider = "| --- |"
@@ -206,8 +167,8 @@ def show_change_table(reactants, products, history):
 
     for i, substance in enumerate(reactants + products):
         formula = substance[0].translate(str.maketrans("0123456789", "₀₁₂₃₄₅₆₇₈₉"))
-        first = history[0][i]
-        last = history[-1][i]
+        first = initial[i]
+        last = final[i]
         difference = last - first
         sign = "+" if difference > 0 else ""
         header += f" {formula} |"
@@ -220,60 +181,18 @@ def show_change_table(reactants, products, history):
         st.markdown("\n".join([header, divider, before, change, after]))
 
 
-def show_result(reactants, products, history):
-    """
-    마지막 상태를 바탕으로 반응 결과를 문장으로 표시합니다.
-
-    입력: reactants와 products는 해석된 반응물 및 생성물 목록입니다.
-          history는 처음 상태를 포함한 비어 있지 않은 단계 기록입니다.
-    반응하지 못한 경우, 소모된 반응물, 남은 반응물, 생성량을 구분합니다.
-    반환: 별도의 반환값 없이 화면에 결과 설명을 표시합니다.
-    """
-    final_counts = history[-1]
+def show_result(reactants, products, final):
+    amounts = []
+    for i, (formula, coefficient) in enumerate(products):
+        amounts.append(f"{formula} {final[len(reactants) + i]}개")
+    st.html('<h2 class="reaction-result">최대 생성량 · ' + escape(", ".join(amounts)) + '</h2>')
     remaining = []
-    missing = []
-    created = []
-
-    # 마지막 상태에서 반응물별 남은 개수를 확인합니다.
-    for i in range(len(reactants)):
-        formula = reactants[i][0]
-        coefficient = reactants[i][1]
-        count = final_counts[i]
-
-        if count < coefficient:
-            missing.append(formula + " " + str(coefficient - count) + "개")
-
-        # 남아 있는 반응물은 이름과 개수를 문장에 쓸 문자열로 만듭니다.
-        if count > 0:
-            remaining.append(formula + " " + str(count) + "개")
-
-    # 기록에서 생성물 개수는 반응물 개수들 다음 위치부터 시작합니다.
-    for i in range(len(products)):
-        formula = products[i][0]
-        count = final_counts[len(reactants) + i]
-        created.append(formula + " " + str(count) + "개")
-
-    if len(history) == 1:
-        st.write("반응하려면 " + ", ".join(missing) + " 더 필요합니다.")
-        return
-
-    st.html('<h2 class="reaction-result">' + escape(", ".join(created)) + ' 생성</h2>')
-    # 남은 반응물이 있으면 이름과 개수를, 없으면 없다는 문장을 표시합니다.
-    if len(remaining) > 0:
-        st.write("남은 반응물은 " + ", ".join(remaining) + "입니다.")
-    else:
-        st.write("남은 반응물은 없습니다.")
+    for i, (formula, coefficient) in enumerate(reactants):
+        remaining.append(f"{formula} {final[i]}개")
+    st.write("남은 반응물 · " + ", ".join(remaining))
 
 
 def show_screen():
-    """
-    입력 화면을 만들고 반응 실행 및 결과 표시를 연결합니다.
-
-    입력: 함수 인자는 없으며 사용자가 화면에서 반응과 분자 수를 입력합니다.
-    실행 버튼을 누르면 반응물이 부족해질 때까지 계산하고 기록을 저장합니다.
-    반응이나 숫자를 바꾸면 기록을 지우며 같은 입력에서는 결과를 유지합니다.
-    반환: 별도의 반환값 없이 Streamlit 화면을 표시합니다.
-    """
     st.set_page_config(page_title="화학 반응 시뮬레이터", layout="centered")
     css = Path(__file__).with_name("style.css").read_text(encoding="utf-8")
     st.html("<style>" + css + "</style>")
@@ -324,49 +243,20 @@ def show_screen():
         )
         reactant_counts.append(count)
 
-    # 선택한 반응과 입력 개수를 새 리스트로 묶어 변경 여부를 비교합니다.
-    current_inputs = [selected_name, equation] + reactant_counts
+    # 반응물이 각각 몇 회분인지 계산하고, 가장 적은 횟수까지만 진행합니다.
+    steps = min(count // coefficient for count, (_, coefficient) in zip(reactant_counts, reactants))
+    before = reactant_counts + [0] * len(products)
+    changes = [-coefficient for _, coefficient in reactants]
+    changes += [coefficient for _, coefficient in products]
+    after = counts_at_step(before, changes, steps)
 
-    # session_state는 화면이 다시 실행되어도 값을 보관합니다.
-    # 처음 접속했을 때만 비교용 입력값과 단계 기록을 준비합니다.
-    if "previous_inputs" not in st.session_state:
-        st.session_state.previous_inputs = []
-
-    if "history" not in st.session_state:
-        st.session_state.history = []
-
-    # 반응 또는 숫자가 달라졌으면 이전 결과를 지우고 새 입력을 기억합니다.
-    if current_inputs != st.session_state.previous_inputs:
-        st.session_state.history = []
-        st.session_state.previous_inputs = current_inputs
-
-    # 버튼을 누른 실행에서만 처음 입력값으로 전체 반응을 계산합니다.
-    if st.button("실행"):
-        product_counts = []
-
-        # 생성물은 종류별로 0개에서 시작합니다.
-        for product in products:
-            product_counts.append(0)
-
-        history = []
-        # +로 새 리스트를 만들어 저장하므로 이후 개수 변경이 이전 기록에 영향을 주지 않습니다.
-        history.append(reactant_counts + product_counts)
-
-        # True일 때마다 한 단계 기록하고, False가 반환되면 반복을 끝냅니다.
-        while react_once(reactant_counts, product_counts, parsed_reaction):
-            # +로 새 리스트를 만들어 저장하므로 이후 개수 변경이 이전 기록에 영향을 주지 않습니다.
-            history.append(reactant_counts + product_counts)
-
-        # 전체 기록을 저장해 다음 화면 실행에서도 사용할 수 있도록 합니다.
-        st.session_state.history = history
-
-    # 결과 표시는 버튼 조건 밖에 두어 저장된 기록이 있으면 계속 보여 줍니다.
-    if len(st.session_state.history) > 0:
-        show_result(reactants, products, st.session_state.history)
-        show_change_table(reactants, products, st.session_state.history)
-
-        with st.expander("단계별 수치 보기"):
-            show_history_table(reactants, products, st.session_state.history)
+    show_result(reactants, products, after)
+    st.caption("주어진 반응식의 정반응만 고려한 이론적 최대량입니다."
+               + (" 실제 암모니아 평형 수율은 온도와 압력에 따라 달라집니다." if selected_name == "암모니아 합성" else ""))
+    show_molecules(reactants + products, before, after)
+    show_change_table(reactants, products, before, after)
+    with st.expander("단계별 수치 보기"):
+        show_history_table(reactants + products, before, changes, steps)
 
 
 show_screen()
