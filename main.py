@@ -2,7 +2,6 @@ import streamlit as st
 import os
 import base64
 from html import escape
-import re
 from pathlib import Path
 
 def read_reactions():
@@ -291,46 +290,27 @@ def show_history_table(reactants, products, history):
     st.markdown(table)
 
 
-def show_history_chart(reactants, products, history, colors):
-    """
-    단계별 분자 수를 물질마다 하나의 선으로 표시합니다.
+def show_change_table(reactants, products, history):
+    st.subheader("반응 전후 분자 수")
+    header = "| 분자 수(개) |"
+    divider = "| --- |"
+    before = "| 반응 전 |"
+    change = "| 변화량 |"
+    after = "| **반응 후** |"
 
-    입력: reactants와 products는 해석된 반응물 및 생성물 목록입니다.
-          history는 처음 상태부터 마지막 상태까지의 분자 수 기록입니다.
-    가로축은 단계, 세로축은 분자 수이며 선의 이름은 화학식입니다.
-    반환: 별도의 반환값 없이 화면에 선 그래프를 표시합니다.
-    """
-    st.subheader("단계별 분자 수 변화")
+    for i, substance in enumerate(reactants + products):
+        formula = substance[0].translate(str.maketrans("0123456789", "₀₁₂₃₄₅₆₇₈₉"))
+        first = history[0][i]
+        last = history[-1][i]
+        difference = last - first
+        sign = "+" if difference > 0 else ""
+        header += f" {formula} |"
+        divider += " ---: |"
+        before += f" {first} |"
+        change += f" {sign}{difference} |"
+        after += f" **{last}** |"
 
-    substances = reactants + products
-    points = []
-    for step, counts in enumerate(history):
-        for i, substance in enumerate(substances):
-            points.append({"단계": step, "분자 수": counts[i], "물질": substance[0]})
-
-    # 그래프 안쪽은 캔버스이므로 style.css에서 읽은 색을 직접 전달합니다.
-    st.vega_lite_chart(points, {
-        "background": colors["surface"],
-        "mark": {"type": "line", "point": True, "tooltip": True},
-        "encoding": {
-            "x": {"field": "단계", "type": "quantitative", "axis": {"tickMinStep": 1}},
-            "y": {"field": "분자 수", "type": "quantitative", "axis": {"tickMinStep": 1}},
-            "color": {"field": "물질", "type": "nominal", "legend": {"orient": "bottom"}}
-        },
-        "config": {
-            "font": "Pretendard, PretendardWeb, sans-serif",
-            "axis": {"labelColor": colors["text"], "titleColor": colors["highlight"],
-                     "gridColor": colors["border"], "domainColor": colors["border"]},
-            "legend": {"labelColor": colors["highlight"], "titleColor": colors["text"]},
-            "range": {"category": [colors["accent"], colors["highlight"], colors["chart-muted"],
-                                   colors["hover"], colors["text"]]},
-            "view": {"stroke": None}
-        }
-    }, use_container_width=True, theme=None)
-
-    # 처음 상태만 있으면 연결할 다음 점이 없어 변화하는 선이 생기지 않습니다.
-    if len(history) == 1:
-        st.caption("반응이 일어나지 않아 0단계 데이터만 있습니다.")
+    st.markdown("\n".join([header, divider, before, change, after]))
 
 
 def show_result(reactants, products, history):
@@ -504,12 +484,7 @@ def show_screen():
     # 결과 표시는 버튼 조건 밖에 두어 저장된 기록이 있으면 계속 보여 줍니다.
     if len(st.session_state.history) > 0:
         show_result(reactants, products, st.session_state.history)
-        show_history_chart(
-            reactants,
-            products,
-            st.session_state.history,
-            dict(re.findall(r"--([\w-]+):\s*(#[0-9a-fA-F]{6});", css))
-        )
+        show_change_table(reactants, products, st.session_state.history)
 
         with st.expander("단계별 수치 보기"):
             show_history_table(reactants, products, st.session_state.history)

@@ -14,7 +14,6 @@
     --highlight: #c9d3ee;
     --accent: #7c87f7;
     --hover: #98a4f7;
-    --chart-muted: #646e87;
     --border: #2f3547;
     --body-font: "Helvetica Now Text", Pretendard, PretendardWeb, "Malgun Gothic", sans-serif;
     --heading-font: "Helvetica Now Display", Pretendard, PretendardWeb, "Malgun Gothic", sans-serif;
@@ -138,7 +137,6 @@
 .molecule-table td { border-top: 1px solid var(--border); }
 .stApp :is(.molecule-table, .stMarkdown) th { background: #202432; color: var(--highlight); }
 .molecule-table img { display: block; height: 80px; max-width: 100%; object-fit: contain; }
-.stApp [data-testid="stVegaLiteChart"] { background: var(--surface); border-radius: 16px; padding: 8px; }
 
 .stApp .reaction-equation { font-size: 40px; }
 .stApp .reaction-result { color: var(--accent); font-size: 32px; }
