@@ -140,3 +140,38 @@
 
 .stApp .reaction-equation { font-size: 40px; }
 .stApp .reaction-result { color: var(--accent); font-size: 32px; }
+
+/* 반응 전후 표는 결과 영역 전체에 펼쳐 같은 물질의 수를 세로로 비교합니다. */
+.stApp .st-key-reaction-summary {
+    overflow-x: auto;
+    border-radius: 16px;
+    background: var(--surface);
+}
+
+.stApp .st-key-reaction-summary table {
+    width: 100%;
+    border-collapse: collapse;
+    font-variant-numeric: tabular-nums;
+}
+
+.stApp .st-key-reaction-summary :is(th, td) {
+    padding: 16px 24px;
+    border: 0;
+    border-bottom: 1px solid var(--border);
+    text-align: center;
+    white-space: nowrap;
+    font-size: 20px;
+}
+
+.stApp .st-key-reaction-summary :is(th, td):first-child {
+    width: 24%;
+    color: var(--text);
+    text-align: left;
+    font-size: 16px;
+}
+
+.stApp .st-key-reaction-summary tbody tr:last-child td {
+    background: #202432;
+    border-bottom: 0;
+    color: var(--accent);
+}

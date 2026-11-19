@@ -310,7 +310,8 @@ def show_change_table(reactants, products, history):
         change += f" {sign}{difference} |"
         after += f" **{last}** |"
 
-    st.markdown("\n".join([header, divider, before, change, after]))
+    with st.container(key="reaction-summary"):
+        st.markdown("\n".join([header, divider, before, change, after]))
 
 
 def show_result(reactants, products, history):
