@@ -504,7 +504,7 @@ def show_screen():
         st.session_state.previous_inputs = current_inputs
 
     # 버튼을 누른 실행에서만 처음 입력값으로 전체 반응을 계산합니다.
-    if st.sidebar.button("실행"):
+    if st.button("실행"):
         product_counts = []
 
         # 생성물은 종류별로 0개에서 시작합니다.
