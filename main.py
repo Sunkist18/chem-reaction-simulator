@@ -118,6 +118,22 @@ def parse_reaction(equation):
     return result
 
 
+def valid_equation(equation):
+    # 반응물과 생성물을 나누는 화살표는 하나만 씁니다.
+    if equation.count("->") != 1 or not equation.isascii():
+        return False
+
+    for side in parse_reaction(equation):
+        formulas = []
+        for formula, coefficient in side:
+            if not formula or coefficient < 1 or formula in formulas:
+                return False
+            if not formula[0].isupper() or not formula.replace("(", "").replace(")", "").isalnum():
+                return False
+            formulas.append(formula)
+    return True
+
+
 def react_once(reactant_counts, product_counts, parsed_reaction):
     """
     반응물이 충분하면 반응을 한 번 진행합니다.
@@ -439,6 +455,11 @@ def show_result(reactants, products, history):
     st.write("생성물은 " + ", ".join(created) + " 만들어졌습니다.")
 
 
+def delete_reaction(index):
+    st.session_state.reactions.pop(index)
+    st.session_state.history = []
+
+
 def show_screen():
     """
     입력 화면을 만들고 반응 실행 및 결과 표시를 연결합니다.
@@ -451,16 +472,39 @@ def show_screen():
     st.title("화학 반응 시뮬레이터")
 
     # 파일에서 읽은 반응의 이름만 모아 선택 메뉴에 사용합니다.
-    reactions = read_reactions()
+    if "reactions" not in st.session_state:
+        st.session_state.reactions = read_reactions()
+    reactions = st.session_state.reactions
     reaction_names = []
 
     for reaction in reactions:
         reaction_names.append(reaction[0])
 
+    with st.sidebar.expander("반응 추가"):
+        with st.form("add_reaction"):
+            name = st.text_input("반응 이름").strip()
+            equation = st.text_input("반응식", placeholder="2H2 + O2 -> 2H2O", max_chars=200).strip()
+            kind = st.text_input("종류").strip()
+            description = st.text_input("설명").strip()
+            if st.form_submit_button("추가"):
+                if not name or name in reaction_names:
+                    st.warning("새 반응의 이름을 중복 없이 입력하세요.")
+                elif not valid_equation(equation):
+                    st.warning("예시처럼 양쪽에 화학식을 입력하세요. 같은 쪽의 같은 물질은 계수로 묶어 주세요.")
+                else:
+                    reactions.append([name, equation, kind, description])
+                    st.session_state.selected_name = name
+                    reaction_names.append(name)
+
+    if not reactions:
+        st.info("사이드바에서 반응을 추가하세요.")
+        return
+
     # 선택한 이름의 위치를 찾아 그 반응의 전체 정보를 꺼냅니다.
-    selected_name = st.sidebar.selectbox("반응 선택", reaction_names)
+    selected_name = st.sidebar.selectbox("반응 선택", reaction_names, key="selected_name")
     selected_index = reaction_names.index(selected_name)
     selected_reaction = reactions[selected_index]
+    st.sidebar.button("선택한 반응 삭제", on_click=delete_reaction, args=(selected_index,))
 
     # 반응식을 해석하여 반응물 및 생성물 목록을 만듭니다.
     equation = selected_reaction[1]
