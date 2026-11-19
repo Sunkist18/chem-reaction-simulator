@@ -124,19 +124,14 @@
     .stApp button { min-width: 44px; }
 }
 
-.stApp :is(.molecule-table, .stMarkdown table) {
+.stApp .stMarkdown table {
     overflow-x: auto;
     background: var(--surface);
     color: var(--highlight);
     font-family: var(--body-font);
 }
 
-.molecule-table { border: 1px solid var(--border); border-radius: 16px; }
-.molecule-table table { width: 100%; border-collapse: collapse; }
-.molecule-table :is(th, td) { padding: 8px 16px; text-align: left; }
-.molecule-table td { border-top: 1px solid var(--border); }
-.stApp :is(.molecule-table, .stMarkdown) th { background: #202432; color: var(--highlight); }
-.molecule-table img { display: block; height: 80px; max-width: 100%; object-fit: contain; }
+.stApp .stMarkdown th { background: #202432; color: var(--highlight); }
 
 .stApp .reaction-equation { font-size: 40px; }
 .stApp .reaction-result { color: var(--accent); font-size: 32px; }

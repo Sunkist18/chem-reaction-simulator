@@ -1,6 +1,4 @@
 import streamlit as st
-import os
-import base64
 from html import escape
 from pathlib import Path
 
@@ -118,22 +116,6 @@ def parse_reaction(equation):
     return result
 
 
-def valid_equation(equation):
-    # 반응물과 생성물을 나누는 화살표는 하나만 씁니다.
-    if equation.count("->") != 1 or not equation.isascii():
-        return False
-
-    for side in parse_reaction(equation):
-        formulas = []
-        for formula, coefficient in side:
-            if not formula or coefficient < 1 or formula in formulas:
-                return False
-            if not formula[0].isupper() or not formula.replace("(", "").replace(")", "").isalnum():
-                return False
-            formulas.append(formula)
-    return True
-
-
 def react_once(reactant_counts, product_counts, parsed_reaction):
     """
     반응물이 충분하면 반응을 한 번 진행합니다.
@@ -171,82 +153,6 @@ def react_once(reactant_counts, product_counts, parsed_reaction):
 
     # 반응을 한 번 완료했다는 뜻으로 True를 반환합니다.
     return True
-
-
-def find_molecule_image(formula):
-    """
-    화학식과 이름이 같은 분자 모형 이미지 파일을 찾습니다.
-
-    입력: formula는 'H2O'와 같은 화학식 문자열입니다.
-    반환: 파일이 있으면 경로 문자열, 없으면 빈 문자열입니다.
-    main.py 옆 images 폴더에서 png, jpg, jpeg, webp 순서로 찾습니다.
-    파일 이름의 대소문자는 화학식과 같아야 합니다.
-    """
-    # __file__은 현재 main.py의 경로입니다.
-    # 실행 위치가 달라도 main.py 옆의 images 폴더를 찾도록 합니다.
-    app_folder = os.path.dirname(os.path.abspath(__file__))
-    extensions = [".png", ".jpg", ".jpeg", ".webp"]
-
-    for extension in extensions:
-        # 예: images/H2O.png. 계수는 파일 이름에 넣지 않습니다.
-        image_path = os.path.join(app_folder, "images", formula + extension)
-
-        # 파일이 실제로 있을 때만 이미지 표시 함수에 전달합니다.
-        if os.path.isfile(image_path):
-            return image_path
-
-    return ""
-
-
-def load_molecule_image(formula):
-    """
-    로컬 분자 이미지를 표의 이미지 셀에서 읽을 수 있는 문자열로 바꿉니다.
-
-    입력: formula는 화학식 문자열입니다.
-    반환: 이미지 데이터를 포함한 data URL이며 파일이 없거나 읽지 못하면 None입니다.
-    ImageColumn은 로컬 파일 경로를 직접 표시하지 못하므로 Base64로 변환합니다.
-    """
-    image_path = find_molecule_image(formula)
-
-    if image_path == "":
-        return None
-
-    # rb는 이미지 같은 바이너리 파일을 읽는 모드입니다.
-    try:
-        file = open(image_path, "rb")
-        image_bytes = file.read()
-        file.close()
-    except OSError:
-        return None
-
-    # 확장자에 맞는 이미지 형식을 지정합니다.
-    extension = os.path.splitext(image_path)[1]
-    image_type = extension[1:]
-    if image_type == "jpg":
-        image_type = "jpeg"
-
-    # Base64는 이미지 바이트를 표에 전달할 수 있는 문자열로 바꾸는 방법입니다.
-    encoded_image = base64.b64encode(image_bytes).decode("ascii")
-    return "data:image/" + image_type + ";base64," + encoded_image
-
-
-def show_table(title, substances):
-    """분자 모형 이미지를 화학식, 계수와 함께 표시합니다."""
-    st.subheader(title)
-    table = "<table><thead><tr><th>분자 모형</th><th>화학식</th><th>계수</th></tr></thead><tbody>"
-    missing_images = []
-    for formula, coefficient in substances:
-        image = load_molecule_image(formula)
-        model = ""
-        if image:
-            model = f'<img src="{image}" alt="{escape(formula)} 분자 모형">'
-        else:
-            missing_images.append(formula)
-        table += f"<tr><td>{model}</td><td>{escape(formula)}</td><td>{coefficient}</td></tr>"
-    st.html('<div class="molecule-table">' + table + "</tbody></table></div>")
-
-    if len(missing_images) > 0:
-        st.caption("이미지 없음: " + ", ".join(missing_images))
 
 
 def show_history_table(reactants, products, history):
@@ -359,11 +265,6 @@ def show_result(reactants, products, history):
         st.write("남은 반응물은 없습니다.")
 
 
-def delete_reaction(index):
-    st.session_state.reactions.pop(index)
-    st.session_state.history = []
-
-
 def show_screen():
     """
     입력 화면을 만들고 반응 실행 및 결과 표시를 연결합니다.
@@ -379,39 +280,16 @@ def show_screen():
     st.title("화학 반응 시뮬레이터")
 
     # 파일에서 읽은 반응의 이름만 모아 선택 메뉴에 사용합니다.
-    if "reactions" not in st.session_state:
-        st.session_state.reactions = read_reactions()
-    reactions = st.session_state.reactions
+    reactions = read_reactions()
     reaction_names = []
 
     for reaction in reactions:
         reaction_names.append(reaction[0])
 
-    with st.sidebar.expander("반응 추가"):
-        with st.form("add_reaction"):
-            name = st.text_input("반응 이름").strip()
-            equation = st.text_input("반응식", placeholder="2H2 + O2 -> 2H2O", max_chars=200).strip()
-            kind = st.text_input("종류").strip()
-            description = st.text_input("설명").strip()
-            if st.form_submit_button("추가"):
-                if not name or name in reaction_names:
-                    st.warning("새 반응의 이름을 중복 없이 입력하세요.")
-                elif not valid_equation(equation):
-                    st.warning("예시처럼 양쪽에 화학식을 입력하세요. 같은 쪽의 같은 물질은 계수로 묶어 주세요.")
-                else:
-                    reactions.append([name, equation, kind, description])
-                    st.session_state.selected_name = name
-                    reaction_names.append(name)
-
-    if not reactions:
-        st.info("사이드바에서 반응을 추가하세요.")
-        return
-
     # 선택한 이름의 위치를 찾아 그 반응의 전체 정보를 꺼냅니다.
     selected_name = st.selectbox("반응 선택", reaction_names, key="selected_name")
     selected_index = reaction_names.index(selected_name)
     selected_reaction = reactions[selected_index]
-    st.sidebar.button("선택한 반응 삭제", on_click=delete_reaction, args=(selected_index,))
 
     # 반응식을 해석하여 반응물 및 생성물 목록을 만듭니다.
     equation = selected_reaction[1]
@@ -489,12 +367,6 @@ def show_screen():
 
         with st.expander("단계별 수치 보기"):
             show_history_table(reactants, products, st.session_state.history)
-        with st.expander("분자 모형과 계수 보기"):
-            left, right = st.columns(2)
-            with left:
-                show_table("반응물", reactants)
-            with right:
-                show_table("생성물", products)
 
 
 show_screen()
