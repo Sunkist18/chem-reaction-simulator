@@ -1,21 +1,29 @@
 /* 앱에서 사용하는 색상 */
 :root {
-    --page-background: #ffffff;
-    --sidebar-background: #f1f6f5;
-    --heading-color: #203034;
-    --button-color: #176b70;
+    color-scheme: dark;
+    --page-background: #15191e;
+    --sidebar-background: #20262d;
+    --text-color: #eef2f6;
+    --button-color: #196c73;
 }
 
 .stApp {
     background-color: var(--page-background);
+    color: var(--text-color);
 }
 
 [data-testid="stSidebar"] {
     background-color: var(--sidebar-background);
 }
 
-.stApp h1, .stApp h2, .stApp h3 {
-    color: var(--heading-color);
+.stApp :is(h1, h2, h3, label, summary, [data-testid="stCaptionContainer"]) {
+    color: var(--text-color);
+}
+
+.stApp :is(header, details, form, button, input, [data-baseweb="input"], [data-baseweb="base-input"], [data-baseweb="select"] > div),
+[role="listbox"], [role="option"] {
+    background-color: var(--sidebar-background);
+    color: var(--text-color);
 }
 
 /* 메인 화면의 실행 버튼 */
