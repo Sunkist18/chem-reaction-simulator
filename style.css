@@ -1,36 +1,118 @@
-/* 앱에서 사용하는 색상 */
+/* 앱 전체에서 사용하는 색과 글꼴 */
 :root {
     color-scheme: dark;
-    --page-background: #15191e;
-    --sidebar-background: #20262d;
-    --text-color: #eef2f6;
-    --button-color: #196c73;
+    --canvas: #0b0c14;
+    --surface: #171926;
+    --text: #939db8;
+    --highlight: #c9d3ee;
+    --accent: #7c87f7;
+    --hover: #98a4f7;
+    --border: #2f3547;
+    --body-font: "Helvetica Now Text", "Malgun Gothic", sans-serif;
+    --heading-font: "Helvetica Now Display", "Malgun Gothic", sans-serif;
 }
 
-.stApp {
-    background-color: var(--page-background);
-    color: var(--text-color);
+.stApp, .stApp header {
+    background: var(--canvas);
+    color: var(--text);
+    font-family: var(--body-font);
 }
 
-[data-testid="stSidebar"] {
-    background-color: var(--sidebar-background);
+.stApp :is(p, label, input, button, summary), [role="listbox"] {
+    font-family: var(--body-font);
 }
 
-.stApp :is(h1, h2, h3, label, summary, [data-testid="stCaptionContainer"]) {
-    color: var(--text-color);
+.stApp :is(h1, h2, h3, h4) {
+    color: var(--highlight);
+    font-family: var(--heading-font);
+    font-weight: 500;
+    line-height: 1.1;
+    word-break: keep-all;
 }
 
-.stApp :is(header, details, form, button, input, [data-baseweb="input"], [data-baseweb="base-input"], [data-baseweb="select"] > div),
-[role="listbox"], [role="option"] {
-    background-color: var(--sidebar-background);
-    color: var(--text-color);
+.stApp h1 { font-size: clamp(40px, 5vw, 53px); }
+.stApp h2 { font-size: 40px; }
+.stApp h3 { font-size: 20px; }
+
+.stApp .block-container {
+    max-width: 960px;
+    margin-inline: auto;
+    padding-inline: 32px;
 }
 
-/* 메인 화면의 실행 버튼 */
-main .stButton button, [data-testid="stMain"] .stButton button {
-    background-color: var(--button-color);
-    color: white;
-    border: 0;
-    border-radius: 8px;
-    padding: 0.5rem 1.25rem;
+.stApp [data-testid="stMain"] .stMarkdown p { font-size: 20px; line-height: 1.4; }
+.stApp :is(label, summary, [data-testid="stCaptionContainer"]) { color: var(--text); }
+.stApp a { color: var(--hover); }
+
+.stApp [data-testid="stSidebar"], .stApp details {
+    background: var(--surface);
+    color: var(--text);
+}
+
+.stApp details, .stApp [data-testid="stForm"] {
+    border: 1px solid var(--border);
+    border-radius: 16px;
+}
+
+.stApp [data-testid="stForm"] { padding: 16px; }
+.stApp details { box-shadow: inset 0 1px 3px rgba(255, 255, 255, 0.25); }
+
+/* 입력칸과 반응 선택 메뉴 */
+.stApp :is([data-baseweb="input"], [data-baseweb="select"] > div, [data-testid="stNumberInputContainer"]),
+[role="listbox"] {
+    background: var(--surface);
+    color: var(--highlight);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+}
+
+.stApp :is(input, [data-baseweb="base-input"]), [role="option"] {
+    background: var(--surface);
+    color: var(--highlight);
+}
+
+.stApp input::placeholder { color: var(--text); }
+[role="option"]:is(:hover, [aria-selected="true"]) { background: #202432; }
+
+.stApp button {
+    color: var(--highlight);
+    background: transparent;
+}
+
+.stApp :is(.stButton, .stFormSubmitButton) button {
+    padding: 8px 24px;
+    border: 1px solid var(--border);
+    border-radius: 16px;
+}
+
+.stApp :is(.stButton, .stFormSubmitButton) button:hover { border-color: var(--hover); }
+
+/* 실행 버튼 */
+.stApp [data-testid="stMain"] .stButton button {
+    color: var(--canvas);
+    background: var(--accent);
+    border-color: transparent;
+}
+
+.stApp [data-testid="stMain"] .stButton button:hover { background: var(--hover); }
+.stApp :is(button, summary, a):focus-visible,
+.stApp :is([data-baseweb="input"], [data-baseweb="select"]):focus-within {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+.stApp .stMarkdown :is(th, td) {
+    padding: 8px 16px;
+    border-color: var(--border);
+}
+
+.stApp .stMarkdown th { background: var(--surface); color: var(--highlight); }
+
+@media (max-width: 639px) {
+    .stApp .block-container { padding-inline: 16px; }
+    .stApp h1 { font-size: 40px; }
+    .stApp h2 { font-size: 32px; }
+    .stApp [data-testid="stMain"] .stMarkdown p { font-size: 16px; }
+    .stApp :is(button, input, summary, [data-baseweb="select"] > div) { min-height: 44px; }
+    .stApp button { min-width: 44px; }
 }
