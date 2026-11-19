@@ -1,8 +1,8 @@
 import streamlit as st
 import os
 import base64
-from PIL import Image
-from inspect import signature
+from html import escape
+import re
 from pathlib import Path
 
 def read_reactions():
@@ -232,70 +232,19 @@ def load_molecule_image(formula):
 
 
 def show_table(title, substances):
-    """
-    분자 모형, 화학식, 계수 순서로 실제 표를 표시합니다.
-    모형 열 너비는 높이 100인 행에서 이미지 비율에 맞게 계산합니다.
-
-    입력: title은 표 제목, substances는 [화학식, 계수]의 목록입니다.
-    이미지가 없는 셀은 비워 두고 해당 물질을 표 아래에 안내합니다.
-    반환: 별도의 반환값 없이 화면에 표를 표시합니다.
-    """
+    """분자 모형 이미지를 화학식, 계수와 함께 표시합니다."""
     st.subheader(title)
-    rows = []
+    table = "<table><thead><tr><th>분자 모형</th><th>화학식</th><th>계수</th></tr></thead><tbody>"
     missing_images = []
-    image_column_width = 100
-
-    for substance in substances:
-        formula = substance[0]
-        coefficient = substance[1]
-        image_data = load_molecule_image(formula)
-
-        # 딕셔너리의 이름은 열 제목이고 값은 해당 행의 셀 내용입니다.
-        rows.append({
-            "분자 모형": image_data,
-            "화학식": formula,
-            "계수": coefficient
-        })
-
-        # 이미지의 가로세로 비율에 맞춰 필요한 열 너비를 계산합니다.
-        # 행 높이 100에서 여백을 뺀 이미지 높이 88을 기준으로 합니다.
-        image_path = find_molecule_image(formula)
-        if image_path != "":
-            try:
-                image = Image.open(image_path)
-                image_width = image.width
-                image_height = image.height
-                image.close()
-                required_width = round(image_width * 88 / image_height) + 16
-
-                # 한 표의 열 너비는 같으므로 가장 넓은 이미지에 맞춥니다.
-                if required_width > image_column_width:
-                    image_column_width = required_width
-            except OSError:
-                # 읽을 수 없는 이미지는 빈 셀로 두고 누락 안내에 포함합니다.
-                rows[-1]["분자 모형"] = None
-                image_data = None
-
-        if image_data is None:
+    for formula, coefficient in substances:
+        image = load_molecule_image(formula)
+        model = ""
+        if image:
+            model = f'<img src="{image}" alt="{escape(formula)} 분자 모형">'
+        else:
             missing_images.append(formula)
-
-    # 이미지 열로 지정해야 문자열 대신 이미지가 셀 안에 표시됩니다.
-    # 행 높이를 늘려 모형이 보이게 하고 불필요한 행 번호는 숨깁니다.
-    table_size = {}
-    if "row_height" in signature(st.dataframe).parameters:
-        table_size["row_height"] = 100
-
-    st.dataframe(
-        rows,
-        column_config={
-            "분자 모형": st.column_config.ImageColumn(
-                "분자 모형", width=image_column_width
-            )
-        },
-        column_order=["분자 모형", "화학식", "계수"],
-        hide_index=True,
-        **table_size
-    )
+        table += f"<tr><td>{model}</td><td>{escape(formula)}</td><td>{coefficient}</td></tr>"
+    st.html('<div class="molecule-table">' + table + "</tbody></table></div>")
 
     if len(missing_images) > 0:
         st.caption("이미지 없음: " + ", ".join(missing_images))
@@ -342,7 +291,7 @@ def show_history_table(reactants, products, history):
     st.markdown(table)
 
 
-def show_history_chart(reactants, products, history):
+def show_history_chart(reactants, products, history, colors):
     """
     단계별 분자 수를 물질마다 하나의 선으로 표시합니다.
 
@@ -354,34 +303,30 @@ def show_history_chart(reactants, products, history):
     st.subheader("단계별 분자 수 변화")
 
     substances = reactants + products
-    steps = []
+    points = []
+    for step, counts in enumerate(history):
+        for i, substance in enumerate(substances):
+            points.append({"단계": step, "분자 수": counts[i], "물질": substance[0]})
 
-    # 0단계는 처음 상태이며 기록의 개수만큼 단계 번호를 만듭니다.
-    for step in range(len(history)):
-        steps.append(step)
-
-    # 딕셔너리는 이름과 값을 짝지어 저장합니다.
-    # 그래프의 열 이름 '단계'에 단계 번호 리스트를 연결합니다.
-    chart_data = {"단계": steps}
-
-    # 행 단위 기록에서 같은 물질의 개수만 모아 하나의 선 데이터로 만듭니다.
-    for i in range(len(substances)):
-        formula = substances[i][0]
-        counts = []
-
-        for row in history:
-            counts.append(row[i])
-
-        # 예: chart_data['H2'] = [4, 2, 0]
-        chart_data[formula] = counts
-
-    # 단계 열을 가로축으로 지정하면 나머지 물질 열마다 선 하나가 생깁니다.
-    st.line_chart(
-        chart_data,
-        x="단계",
-        x_label="단계",
-        y_label="분자 수"
-    )
+    # 그래프 안쪽은 캔버스이므로 style.css에서 읽은 색을 직접 전달합니다.
+    st.vega_lite_chart(points, {
+        "background": colors["surface"],
+        "mark": {"type": "line", "point": True, "tooltip": True},
+        "encoding": {
+            "x": {"field": "단계", "type": "quantitative", "axis": {"tickMinStep": 1}},
+            "y": {"field": "분자 수", "type": "quantitative", "axis": {"tickMinStep": 1}},
+            "color": {"field": "물질", "type": "nominal", "legend": {"orient": "bottom"}}
+        },
+        "config": {
+            "font": "Pretendard, PretendardWeb, sans-serif",
+            "axis": {"labelColor": colors["text"], "titleColor": colors["highlight"],
+                     "gridColor": colors["border"], "domainColor": colors["border"]},
+            "legend": {"labelColor": colors["highlight"], "titleColor": colors["text"]},
+            "range": {"category": [colors["accent"], colors["highlight"], colors["chart-muted"],
+                                   colors["hover"], colors["text"]]},
+            "view": {"stroke": None}
+        }
+    }, use_container_width=True, theme=None)
 
     # 처음 상태만 있으면 연결할 다음 점이 없어 변화하는 선이 생기지 않습니다.
     if len(history) == 1:
@@ -590,7 +535,8 @@ def show_screen():
         show_history_chart(
             reactants,
             products,
-            st.session_state.history
+            st.session_state.history,
+            dict(re.findall(r"--([\w-]+):\s*(#[0-9a-fA-F]{6});", css))
         )
 
         show_result(

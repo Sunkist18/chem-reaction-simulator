@@ -1,3 +1,10 @@
+@font-face {
+    font-family: PretendardWeb;
+    src: local("Pretendard Variable"), url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/woff2/PretendardVariable.woff2") format("woff2");
+    font-weight: 100 900;
+    font-display: swap;
+}
+
 /* 앱 전체에서 사용하는 색과 글꼴 */
 :root {
     color-scheme: dark;
@@ -7,9 +14,10 @@
     --highlight: #c9d3ee;
     --accent: #7c87f7;
     --hover: #98a4f7;
+    --chart-muted: #646e87;
     --border: #2f3547;
-    --body-font: "Helvetica Now Text", "Malgun Gothic", sans-serif;
-    --heading-font: "Helvetica Now Display", "Malgun Gothic", sans-serif;
+    --body-font: "Helvetica Now Text", Pretendard, PretendardWeb, "Malgun Gothic", sans-serif;
+    --heading-font: "Helvetica Now Display", Pretendard, PretendardWeb, "Malgun Gothic", sans-serif;
 }
 
 .stApp, .stApp header {
@@ -116,3 +124,18 @@
     .stApp :is(button, input, summary, [data-baseweb="select"] > div) { min-height: 44px; }
     .stApp button { min-width: 44px; }
 }
+
+.stApp :is(.molecule-table, .stMarkdown table) {
+    overflow-x: auto;
+    background: var(--surface);
+    color: var(--highlight);
+    font-family: var(--body-font);
+}
+
+.molecule-table { border: 1px solid var(--border); border-radius: 16px; }
+.molecule-table table { width: 100%; border-collapse: collapse; }
+.molecule-table :is(th, td) { padding: 8px 16px; text-align: left; }
+.molecule-table td { border-top: 1px solid var(--border); }
+.stApp :is(.molecule-table, .stMarkdown) th { background: #202432; color: var(--highlight); }
+.molecule-table img { display: block; height: 80px; max-width: 100%; object-fit: contain; }
+.stApp [data-testid="stVegaLiteChart"] { background: var(--surface); border-radius: 16px; padding: 8px; }
