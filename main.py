@@ -118,19 +118,37 @@ def parse_reaction(equation):
 
 
 def counts_at_step(before, changes, step):
-    return [count + step * change for count, change in zip(before, changes)]
+    counts = []
+    for i in range(len(before)):
+        count = before[i] + changes[i] * step
+        counts.append(count)
+    return counts
+
+
+def display_formula(formula):
+    # 화면에서만 H2O를 H₂O처럼 표시합니다.
+    digits = "0123456789"
+    subscripts = "₀₁₂₃₄₅₆₇₈₉"
+    result = ""
+    for letter in formula:
+        if letter in digits:
+            result += subscripts[int(letter)]
+        else:
+            result += letter
+    return result
 
 
 def show_history_table(substances, before, changes, steps):
     table = "| 단계 |"
-    for formula, coefficient in substances:
-        table += formula + "|"
+    for substance in substances:
+        table += substance[0] + "|"
     table += "\n" + "| --- " * (1 + len(substances)) + "|\n"
     first = 0
     if steps >= 100:
         page = st.number_input("단계 표 페이지", 1, steps // 100 + 1)
         first = (page - 1) * 100
-    for step in range(first, min(first + 100, steps + 1)):
+    last_step = min(first + 99, steps)
+    for step in range(first, last_step + 1):
         table += f"| {step} |"
         for count in counts_at_step(before, changes, step):
             table += f" {count} |"
@@ -146,12 +164,19 @@ def show_molecules(substances, before, after):
         page = st.number_input("물질별 모형 페이지 (100개씩)", 1, (largest + 99) // 100)
         start = (page - 1) * 100
     panel = '<div class="molecule-comparison"><h3>반응 전</h3><h3>반응 후</h3>'
-    for i, (formula, coefficient) in enumerate(substances):
+    for i in range(len(substances)):
+        formula = substances[i][0]
         path = Path(__file__).with_name("molecules") / (formula + ".svg")
-        data = base64.b64encode(path.read_bytes()).decode("ascii")
+        # SVG 파일 내용을 HTML 이미지에 넣을 수 있는 문자열로 바꿉니다.
+        image_bytes = path.read_bytes()
+        data = base64.b64encode(image_bytes).decode("ascii")
         icon = f'<img src="data:image/svg+xml;base64,{data}" alt="">'
         for count in (before[i], after[i]):
-            visible = min(100, max(0, count - start))
+            visible = count - start
+            if visible < 0:
+                visible = 0
+            elif visible > 100:
+                visible = 100
             panel += f'<div class="species"><b>{escape(formula)} · {count}개</b>'
             panel += '<div class="particles">' + icon * visible + '</div></div>'
     st.html(panel + '</div>')
@@ -165,12 +190,15 @@ def show_change_table(reactants, products, initial, final):
     change = "| 변화량 |"
     after = "| **반응 후** |"
 
-    for i, substance in enumerate(reactants + products):
-        formula = substance[0].translate(str.maketrans("0123456789", "₀₁₂₃₄₅₆₇₈₉"))
+    substances = reactants + products
+    for i in range(len(substances)):
+        formula = display_formula(substances[i][0])
         first = initial[i]
         last = final[i]
         difference = last - first
-        sign = "+" if difference > 0 else ""
+        sign = ""
+        if difference > 0:
+            sign = "+"
         header += f" {formula} |"
         divider += " ---: |"
         before += f" {first} |"
@@ -183,11 +211,15 @@ def show_change_table(reactants, products, initial, final):
 
 def show_result(reactants, products, final):
     amounts = []
-    for i, (formula, coefficient) in enumerate(products):
-        amounts.append(f"{formula} {final[len(reactants) + i]}개")
+    for i in range(len(products)):
+        formula = products[i][0]
+        # 최종 개수 목록에는 반응물 다음에 생성물이 들어 있습니다.
+        count = final[len(reactants) + i]
+        amounts.append(f"{formula} {count}개")
     st.html('<h2 class="reaction-result">최대 생성량 · ' + escape(", ".join(amounts)) + '</h2>')
     remaining = []
-    for i, (formula, coefficient) in enumerate(reactants):
+    for i in range(len(reactants)):
+        formula = reactants[i][0]
         remaining.append(f"{formula} {final[i]}개")
     st.write("남은 반응물 · " + ", ".join(remaining))
 
@@ -221,19 +253,23 @@ def show_screen():
     for side in parsed_reaction:
         terms = []
         for formula, coefficient in side:
-            term = formula.translate(str.maketrans("0123456789", "₀₁₂₃₄₅₆₇₈₉"))
+            term = display_formula(formula)
             if coefficient != 1:
                 term = str(coefficient) + term
             terms.append(term)
         sides.append(" + ".join(terms))
     st.html('<h2 class="reaction-equation">' + escape(" → ".join(sides)) + '</h2>')
-    st.caption(" · ".join(filter(None, selected_reaction[2:])))
+    details = []
+    for text in selected_reaction[2:]:
+        if text != "":
+            details.append(text)
+    st.caption(" · ".join(details))
 
     reactant_counts = []
-    for i, reactant in enumerate(reactants):
+    for i in range(len(reactants)):
         if i % 2 == 0:
             columns = st.columns(2)
-        formula = reactant[0]
+        formula = reactants[i][0]
         # 최솟값과 처음 값은 0이며 증감 버튼은 1개씩 바꿉니다.
         count = columns[i % 2].number_input(
             formula + " 분자 수",
@@ -244,15 +280,28 @@ def show_screen():
         reactant_counts.append(count)
 
     # 반응물이 각각 몇 회분인지 계산하고, 가장 적은 횟수까지만 진행합니다.
-    steps = min(count // coefficient for count, (_, coefficient) in zip(reactant_counts, reactants))
-    before = reactant_counts + [0] * len(products)
-    changes = [-coefficient for _, coefficient in reactants]
-    changes += [coefficient for _, coefficient in products]
+    possible_steps = []
+    for i in range(len(reactants)):
+        count = reactant_counts[i]
+        coefficient = reactants[i][1]
+        possible_steps.append(count // coefficient)
+    steps = min(possible_steps)
+
+    # 반응 한 번에 반응물은 계수만큼 줄고 생성물은 계수만큼 늘어납니다.
+    before = reactant_counts.copy()
+    changes = []
+    for reactant in reactants:
+        changes.append(-reactant[1])
+    for product in products:
+        before.append(0)
+        changes.append(product[1])
     after = counts_at_step(before, changes, steps)
 
     show_result(reactants, products, after)
-    st.caption("주어진 반응식의 정반응만 고려한 이론적 최대량입니다."
-               + (" 실제 암모니아 평형 수율은 온도와 압력에 따라 달라집니다." if selected_name == "암모니아 합성" else ""))
+    note = "주어진 반응식의 정반응만 고려한 이론적 최대량입니다."
+    if selected_name == "암모니아 합성":
+        note += " 실제 암모니아 평형 수율은 온도와 압력에 따라 달라집니다."
+    st.caption(note)
     show_molecules(reactants + products, before, after)
     show_change_table(reactants, products, before, after)
     with st.expander("단계별 수치 보기"):
