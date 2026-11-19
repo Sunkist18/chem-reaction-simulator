@@ -38,7 +38,7 @@
     word-break: keep-all;
 }
 
-.stApp h1 { font-size: clamp(40px, 5vw, 53px); }
+.stApp h1 { font-size: 24px; }
 .stApp h2 { font-size: 40px; }
 .stApp h3 { font-size: 20px; }
 
@@ -118,7 +118,7 @@
 
 @media (max-width: 639px) {
     .stApp .block-container { padding-inline: 16px; }
-    .stApp h1 { font-size: 40px; }
+    .stApp h1 { font-size: 24px; }
     .stApp h2 { font-size: 32px; }
     .stApp [data-testid="stMain"] .stMarkdown p { font-size: 16px; }
     .stApp :is(button, input, summary, [data-baseweb="select"] > div) { min-height: 44px; }
@@ -139,3 +139,6 @@
 .stApp :is(.molecule-table, .stMarkdown) th { background: #202432; color: var(--highlight); }
 .molecule-table img { display: block; height: 80px; max-width: 100%; object-fit: contain; }
 .stApp [data-testid="stVegaLiteChart"] { background: var(--surface); border-radius: 16px; padding: 8px; }
+
+.stApp .reaction-equation { font-size: 40px; }
+.stApp .reaction-result { color: var(--accent); font-size: 32px; }
